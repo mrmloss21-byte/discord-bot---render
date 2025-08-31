@@ -5,7 +5,9 @@ import os, asyncio
 from keep_alive import keep_alive
 from replit.database import Database
 
+# Uruchamia serwer internetowy, który zapobiega uśpieniu bota
 keep_alive()
+
 TOKEN = os.getenv("DISCORD_TOKEN")
 db = Database(os.getenv("REPLIT_DB_URL"))
 
@@ -88,7 +90,6 @@ class TicketControls(View):
     async def rename_ticket(self, interaction: discord.Interaction, button: Button):
         if not interaction.user.guild_permissions.manage_channels:
             return await interaction.response.send_message("❌ Nie masz uprawnień do zmiany nazwy.", ephemeral=True)
-
         await interaction.response.send_modal(RenameModal())
 
     @discord.ui.button(label="📌 Odbierz", style=discord.ButtonStyle.success, custom_id="claim_ticket_button")
@@ -118,7 +119,7 @@ class CategorySelect(View):
 
     @discord.ui.select(
         placeholder="Wybierz kategorię",
-        custom_id="category_select_menu", # Dodano custom_id
+        custom_id="category_select_menu",
         options=[
             discord.SelectOption(label="Kupno", description="Ticket związany z kupnem"),
             discord.SelectOption(label="Sprzedaż", description="Ticket związany ze sprzedażą")
@@ -142,7 +143,7 @@ async def setup_tickets(interaction: discord.Interaction):
 @bot.tree.command(name="ustaw_role_ping", description="Ustaw rolę do pingowania przy nowym tickecie i będzie miała do nich dostęp.")
 @commands.has_permissions(administrator=True)
 async def ustaw_role_ping(interaction: discord.Interaction, rola: discord.Role):
-    db.set("ticket_ping_role", rola.id) # Usunięto await
+    db.set("ticket_ping_role", rola.id)
     await interaction.response.send_message(f"✅ Rola do pingowania ustawiona na {rola.mention}", ephemeral=True)
 
 # ===== Dodatkowe klasy i komendy =====
@@ -162,7 +163,6 @@ async def rename_command(interaction: discord.Interaction):
 
 @bot.event
 async def on_ready():
-    # Te widoki są już zsynchronizowane dzięki custom_id
     bot.add_view(CategorySelect())
     bot.add_view(TicketControls())
     print(f"✅ Zalogowano jako {bot.user}")
