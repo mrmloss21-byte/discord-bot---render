@@ -2,10 +2,8 @@ import discord
 from discord.ext import commands
 from discord.ui import View, Button, Modal, TextInput, Select
 import os, asyncio
-from keep_alive import keep_alive
 from replit.database import Database
 
-keep_alive()
 TOKEN = os.getenv("DISCORD_TOKEN")
 db = Database(os.getenv("REPLIT_DB_URL"))
 
