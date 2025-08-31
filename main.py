@@ -20,37 +20,57 @@ class TicketModal(Modal, title="Formularz Ticketa"):
         await interaction.response.defer(ephemeral=True)
         guild = interaction.guild
 
+        # Podstawowe uprawnienia
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
 
-        # Usunięto await, ponieważ Replit DB nie jest asynchroniczne
-        ping_role_id = db.get("ticket_ping_role")
-        if ping_role_id:
-            ping_role = guild.get_role(ping_role_id)
-            if ping_role:
-                overwrites[ping_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
-
+        # Sprawdź rolę do pingowania
+        ping_role = None
         try:
+            ping_role_id = db.get("ticket_ping_role")
+            if ping_role_id:
+                ping_role = guild.get_role(int(ping_role_id))
+                if ping_role:
+                    overwrites[ping_role] = discord.PermissionOverwrite(read_messages=True, send_messages=True)
+                    print(f"✅ Dodano uprawnienia dla roli: {ping_role.name}")
+        except Exception as e:
+            print(f"⚠️ Błąd z rolą ping: {e}")
+
+        # Próba utworzenia kanału
+        try:
+            print(f"🔄 Tworzenie kanału dla użytkownika: {interaction.user.name}")
             channel = await guild.create_text_channel(
-                name=f"ticket-{interaction.user.name}",
-                overwrites=overwrites
+                name=f"ticket-{interaction.user.name}".lower().replace(" ", "-"),
+                overwrites=overwrites,
+                reason=f"Ticket utworzony przez {interaction.user}"
             )
-        except discord.Forbidden:
-            return await interaction.followup.send("❌ Bot nie ma uprawnień do tworzenia kanałów!", ephemeral=True)
+            print(f"✅ Kanał utworzony: {channel.name}")
+        except discord.Forbidden as e:
+            print(f"❌ Brak uprawnień: {e}")
+            return await interaction.followup.send("❌ Bot nie ma uprawnień do tworzenia kanałów! Sprawdź uprawnienia bota.", ephemeral=True)
+        except Exception as e:
+            print(f"❌ Nieoczekiwany błąd: {e}")
+            return await interaction.followup.send(f"❌ Błąd podczas tworzenia ticketa: {str(e)}", ephemeral=True)
 
-        mention_text = ping_role.mention if ping_role_id else "Nowy ticket!"
+        # Wyślij wiadomość w kanale
+        try:
+            mention_text = ping_role.mention if ping_role else "Nowy ticket!"
 
-        embed = discord.Embed(title="🎟️ Ticket", color=discord.Color.green())
-        embed.add_field(name="👤 Użytkownik", value=interaction.user.mention, inline=True)
-        embed.add_field(name="🎮 Nick w Minecraft", value=self.nick.value, inline=False)
-        embed.set_footer(text=f"ID Użytkownika: {interaction.user.id}")
+            embed = discord.Embed(title="🎟️ Ticket", color=discord.Color.green())
+            embed.add_field(name="👤 Użytkownik", value=interaction.user.mention, inline=True)
+            embed.add_field(name="🎮 Nick w Minecraft", value=self.nick.value, inline=False)
+            embed.set_footer(text=f"ID Użytkownika: {interaction.user.id}")
 
-        view = TicketControls()
-        await channel.send(f"{mention_text}", embed=embed, view=view)
-        await interaction.followup.send(f"✅ Ticket utworzony: {channel.mention}", ephemeral=True)
+            view = TicketControls()
+            await channel.send(f"{mention_text}", embed=embed, view=view)
+            await interaction.followup.send(f"✅ Ticket utworzony: {channel.mention}", ephemeral=True)
+            print(f"✅ Ticket pomyślnie utworzony: {channel.name}")
+        except Exception as e:
+            print(f"❌ Błąd podczas wysyłania wiadomości: {e}")
+            await interaction.followup.send("❌ Ticket utworzony, ale wystąpił błąd z wiadomością.", ephemeral=True)
 
 # ===== Kontrolki Ticketa =====
 class TicketControls(View):
@@ -76,12 +96,15 @@ class TicketControls(View):
         if self.claimed_by:
             return await interaction.response.send_message(f"❌ Ticket już został odebrany przez <@{self.claimed_by}>", ephemeral=True)
 
-        # Usunięto await, ponieważ Replit DB nie jest asynchroniczne
-        ping_role_id = db.get("ticket_ping_role")
-        if ping_role_id:
-            ping_role = interaction.guild.get_role(ping_role_id)
-            if ping_role not in interaction.user.roles and not interaction.user.guild_permissions.manage_channels:
-                return await interaction.response.send_message("❌ Nie masz uprawnień, aby odebrać ten ticket.", ephemeral=True)
+        # Sprawdź uprawnienia
+        try:
+            ping_role_id = db.get("ticket_ping_role")
+            if ping_role_id:
+                ping_role = interaction.guild.get_role(int(ping_role_id))
+                if ping_role and ping_role not in interaction.user.roles and not interaction.user.guild_permissions.manage_channels:
+                    return await interaction.response.send_message("❌ Nie masz uprawnień, aby odebrać ten ticket.", ephemeral=True)
+        except Exception as e:
+            print(f"⚠️ Błąd sprawdzania uprawnień: {e}")
 
         self.claimed_by = interaction.user.id
         await interaction.response.send_message(f"✅ Ticket odebrany przez {interaction.user.mention}", ephemeral=False)
